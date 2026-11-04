@@ -35,6 +35,12 @@ object DirtyFragRunner {
         return File(dir, "libksud.so").exists()
     }
 
+    /** 管理器已安装且自带 libksud.so，才能作为 ksud 来源。 */
+    fun managerReady(pm: android.content.pm.PackageManager, pkg: String): Boolean {
+        val app = runCatching { pm.getApplicationInfo(pkg, 0) }.getOrNull() ?: return false
+        return hasKsud(app)
+    }
+
     @Synchronized
     fun run(ctx: Context, reporter: IReporter): Int {
         if (File("/dev/df").exists()) {
@@ -122,7 +128,7 @@ object DirtyFragRunner {
 
     private fun stageBin(ctx: Context, src: File, name: String) {
         if (!src.exists()) throw IOException("$src not found")
-        val dest = File(ctx.filesDir.parentFile, name)
+        val dest = File(ctx.filesDir, name)
         Files.copy(src.toPath(), dest.toPath(), StandardCopyOption.REPLACE_EXISTING)
         if (!dest.setExecutable(true, false)) {
             throw IOException("setExecutable failed: ${dest.absolutePath}")

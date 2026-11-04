@@ -547,7 +547,6 @@ class MainActivity : ComponentActivity() {
 
     @Composable
     private fun StatusCard(granted: Boolean) {
-        val backendName = PrivService.pick()?.label ?: "Stellar"
         val green = if (isSystemInDarkTheme()) Color(0xFF1A3825) else Color(0xFFDFFAE4)
         val greenTint = Color(0xFF36D167)
         Card(
@@ -582,13 +581,13 @@ class MainActivity : ComponentActivity() {
                 ) {
                     Column {
                         Text(
-                            text = if (granted) "$backendName 已授权" else "$backendName 未授权",
+                            text = if (granted) "临时 root 已激活" else "尚未获得 root",
                             fontSize = 22.sp,
                             fontWeight = FontWeight.SemiBold
                         )
                         Spacer(Modifier.height(4.dp))
                         Text(
-                            text = if (granted) "已连接到 $backendName，可尝试越狱" else "未连接到 $backendName，请授予权限",
+                            text = if (granted) "DirtyFrag 已加载，重启后自动失效" else "点下方按钮开始，无需 Shizuku 或电脑",
                             fontSize = 15.sp
                         )
                     }
@@ -1126,7 +1125,15 @@ class MainActivity : ComponentActivity() {
         manager = kind
         getSharedPreferences("pyb110", MODE_PRIVATE).edit().putString("manager", kind.name).apply()
         getSharedPreferences("dfroot", MODE_PRIVATE).edit().putString("su_manager", kind.pkg).apply()
-        addLog("ROOT manager selected: ${kind.fullLabel}")
+        val info = runCatching { packageManager.getApplicationInfo(kind.pkg, 0) }.getOrNull()
+        when {
+            info == null ->
+                addLog("${kind.fullLabel} 未安装（${kind.pkg}），请先装好管理器再越狱")
+            !DirtyFragRunner.managerReady(packageManager, kind.pkg) ->
+                addLog("${kind.fullLabel} 已安装，但没有 libksud.so，可能不支持这条链路")
+            else ->
+                addLog("ROOT manager selected: ${kind.fullLabel}")
+        }
     }
 
     private fun resolveDeviceName(): String {
