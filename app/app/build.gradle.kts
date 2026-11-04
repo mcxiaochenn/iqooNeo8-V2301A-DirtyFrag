@@ -12,7 +12,7 @@ plugins {
 }
 
 android {
-    namespace = "com.pyb110.onekey"
+    namespace = "com.iqooneo8.dirtyfrag"
     compileSdk {
         version = release(37) {
             minorApiLevel = 0
@@ -20,11 +20,11 @@ android {
     }
     buildToolsVersion = "37.0.0"
     defaultConfig {
-        applicationId = "com.pyb110.onekey"
-        minSdk = 33
+        applicationId = "com.iqooneo8.dirtyfrag"
+        minSdk = 32
         targetSdk = 37
-        versionCode = 81
-        versionName = "1.91"
+        versionCode = 1
+        versionName = "0.1"
     }
     buildFeatures {
         compose = true
@@ -51,6 +51,11 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+    }
+    packaging {
+        jniLibs {
+            useLegacyPackaging = true
+        }
     }
 }
 

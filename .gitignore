@@ -1,23 +1,29 @@
-# Android / Gradle
+# Gradle
 .gradle/
 build/
+app/build/
 local.properties
-.kotlin/
-*.apk
-*.aab
-
-# Signing (never commit)
 keystore.properties
-keystore/
 *.jks
 *.keystore
 
 # IDE
 .idea/
 *.iml
-
-# macOS
 .DS_Store
 
-# Build output
-out/
+# 本地资料（不进仓库）
+firmware/
+rea/
+docs/ref/
+androguard.db
+.cb-t1.log
+.cb_write_test
+.notify-*.mp3
+
+# 本地工具与下载物
+tools/payload-dumper-go.exe
+tools/pdg.tar.gz
+tools/rel.json
+tools/*.b64
+tools/unpack_bootimg.py

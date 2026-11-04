@@ -1,4 +1,4 @@
-package com.pyb110.onekey
+package com.iqooneo8.dirtyfrag
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll

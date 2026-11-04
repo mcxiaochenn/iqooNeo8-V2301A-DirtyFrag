@@ -1,4 +1,4 @@
-package com.pyb110.onekey
+package com.iqooneo8.dirtyfrag
 
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -145,7 +145,6 @@ class MainActivity : ComponentActivity() {
     private var authorized by mutableStateOf(false)
     private var binderReady by mutableStateOf(false)
     private var ksuActive by mutableStateOf(false)
-    private var exploit by mutableStateOf(ExploitKind.CVE98260)
     private var manager by mutableStateOf(ManagerKind.KERNELSU)
     private var kernelVersion by mutableStateOf("未知")
     private var deviceModel by mutableStateOf("未知")
@@ -211,8 +210,8 @@ class MainActivity : ComponentActivity() {
         vfsSupport = getSharedPreferences("pyb110", MODE_PRIVATE).getBoolean("vfs_support", false)
         val savedManager = getSharedPreferences("pyb110", MODE_PRIVATE).getString("manager", null)
         manager = runCatching { ManagerKind.valueOf(savedManager ?: "") }.getOrDefault(ManagerKind.KERNELSU)
+        getSharedPreferences("dfroot", MODE_PRIVATE).edit().putString("su_manager", manager.pkg).apply()
         kernelVersion = runCatching { android.system.Os.uname().release }.getOrDefault("未知")
-        exploit = if (kernelVersion.contains("6.12.69")) ExploitKind.CVE61269 else ExploitKind.CVE98260
         deviceModel = resolveDeviceName()
         refreshStaticStateAsync()
         refreshKsuAsync()
@@ -247,7 +246,7 @@ class MainActivity : ComponentActivity() {
                         topBar = {
                             BlurredBar(backdrop = appBackdrop) {
                                 TopAppBar(
-                                    title = "Shark",
+                                    title = "iQOO Neo8 越狱",
                                     scrollBehavior = scrollBehavior,
                                     color = Color.Transparent
                                 )
@@ -273,27 +272,17 @@ class MainActivity : ComponentActivity() {
                             verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             item {
-                                StatusCard(granted = binderReady && authorized)
+                                StatusCard(granted = ksuActive)
                             }
                             item {
                                 TextButton(
                                     text = when {
                                         busy -> "运行中…"
-                                        !binderReady -> "Stellar/Shizuku 未运行（点击打开）"
-                                        !authorized -> "授权 Shizuku"
                                         ksuActive -> "校验 / 再次越狱"
                                         else -> "一键越狱"
                                     },
                                     onClick = {
-                                        if (busy) return@TextButton
-                                        when {
-                                            !binderReady -> {
-                                                addLog("Start Stellar or Shizuku first")
-                                                PrivService.openManager(applicationContext)
-                                            }
-                                            !authorized -> PrivService.request(REQ_SHIZUKU)
-                                            else -> runFlow()
-                                        }
+                                        if (!busy) runFlow()
                                     },
                                     modifier = Modifier.fillMaxWidth(),
                                     colors = ButtonDefaults.textButtonColorsPrimary()
@@ -349,7 +338,7 @@ class MainActivity : ComponentActivity() {
                             item {
                                 InfoCard(
                                     kernelVersion = kernelVersion,
-                                    exploitLabel = exploit.fullLabel,
+                                    exploitLabel = "DirtyFrag (CVE-2026-43284)",
                                     deviceModel = deviceModel,
                                     fingerprint = Build.FINGERPRINT,
                                     selinux = selinuxText,
@@ -519,20 +508,6 @@ class MainActivity : ComponentActivity() {
                                         )
                                     }
                                 )
-                                if (exploit == ExploitKind.CVE98260) {
-                                    HorizontalDivider()
-                                    SwitchPreference(
-                                        title = "VFS 支持",
-                                        checked = vfsSupport,
-                                        onCheckedChange = { updateVfsSupport(it) },
-                                        startAction = {
-                                            Icon(
-                                                imageVector = Icons.Filled.AccountTree,
-                                                contentDescription = null,
-                                                modifier = Modifier.padding(end = 6.dp),
-                                                tint = COUITheme.colorScheme.onBackground
-                                            )
-                                        }
                                     )
                                 }
                             }
@@ -1092,7 +1067,6 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun refreshKsuAsync() {
-        if (PrivService.pick() == null) return
         lifecycleScope.launch(Dispatchers.IO) {
             try {
                 val (active, se) = readDeviceState()
@@ -1107,15 +1081,16 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun readDeviceState(): Pair<Boolean, String> {
-        val p = PrivService.newProcess(
-            arrayOf("sh", "-c", "if grep -qi kernelsu /proc/modules; then echo YES; elif timeout 3 su -c id 2>/dev/null | grep -q uid=0; then echo YES; else echo NO; fi; getenforce"),
-            shizukuEnv(), "/data/local/tmp"
-        )
-        val lines = p.getInputStream()
-            .bufferedReader().readLines()
-        p.waitFor()
-        val active = lines.getOrNull(0)?.trim() == "YES"
-        val se = mapSelinux(lines.getOrNull(1)?.trim().orEmpty())
+        val active = runCatching {
+            java.io.File("/proc/modules").readText().contains("kernelsu", ignoreCase = true)
+        }.getOrDefault(false)
+        val se = runCatching {
+            when (java.io.File("/sys/fs/selinux/enforce").readText().trim()) {
+                "1" -> "Enforcing"
+                "0" -> "Permissive"
+                else -> "未知"
+            }
+        }.getOrDefault("未知")
         return active to se
     }
 
@@ -1152,6 +1127,7 @@ class MainActivity : ComponentActivity() {
     private fun selectManager(kind: ManagerKind) {
         manager = kind
         getSharedPreferences("pyb110", MODE_PRIVATE).edit().putString("manager", kind.name).apply()
+        getSharedPreferences("dfroot", MODE_PRIVATE).edit().putString("su_manager", kind.pkg).apply()
         addLog("ROOT manager selected: ${kind.fullLabel}")
     }
 
@@ -1233,56 +1209,28 @@ class MainActivity : ComponentActivity() {
 
     private fun runFlow() {
         busy = true
-        val softReboot = softRebootAfter
         val startedAt = System.currentTimeMillis()
-        HistoryStore.start(applicationContext, manager.fullLabel, exploit.fullLabel, kernelVersion, deviceModel)
+        HistoryStore.start(applicationContext, manager.fullLabel, "DirtyFrag", kernelVersion, deviceModel)
         lifecycleScope.launch(Dispatchers.IO) {
             var success = false
             var exit = -1
             try {
-                if (PrivService.pick() == null) {
-                    addLog("No privileged backend (Stellar/Shizuku) running")
-                    return@launch
-                }
-                val ksudPreflight = PrivService.newProcess(
-                    arrayOf("sh", "-c",
-                        "[ -n \"$(pm path '${manager.pkg}' 2>/dev/null)\" ] || [ -x /data/adb/ksu/bin/ksud ] || [ -x /data/adb/ksud ]"),
-                    shizukuEnv(), "/data/local/tmp"
-                ).waitFor()
-                if (ksudPreflight != 0) {
-                    addLog("Manager not installed: ${manager.pkg}. Install the manager APK first; ksud is executed from its APK, no bundled copy.")
-                    return@launch
-                }
-                val dir = deployDir()
-                addLog("Deploying tools to $dir ...")
-                stageAssets(dir, deployPlan())
-                addLog("Starting ${exploit.fullLabel}")
-                val cmd = when (exploit) {
-                    ExploitKind.CVE98260 -> arrayOf("$dir/t98260", "run")
-                    ExploitKind.CVE61269 -> arrayOf("$dir/t61269", "run")
-                }
-                val rc = runStreaming(cmd, dir)
-                exit = rc
-                addLog("exploit exit=$rc")
+                addLog("Starting DirtyFrag (CVE-2026-43284)")
+                exit = DirtyFragRunner.run(applicationContext, object : IReporter {
+                    override fun report(line: String) {
+                        addLog(line.trimEnd())
+                    }
+                })
+                addLog("exploit exit=$exit")
                 val (active, se) = readDeviceState()
-                success = rc == 0 && active
+                success = exit == 0 && active
                 withContext(Dispatchers.Main) {
                     ksuActive = active
                     selinuxText = se
                 }
                 addLog(if (active) "KernelSU module loaded" else "KernelSU module not loaded")
-                if (active && !softReboot) {
+                if (active) {
                     withContext(Dispatchers.Main) { launchManager() }
-                }
-                if (softReboot && rc == 0 && active) {
-                    addLog("Jailbreak complete; restarting zygote")
-                    val rebootRc = runCatching {
-                        PrivService.newProcess(
-                            arrayOf("su", "-c", "setprop ctl.restart zygote"),
-                            shizukuEnv(), "/data/local/tmp"
-                        ).waitFor()
-                    }.getOrDefault(-1)
-                    if (rebootRc != 0) addLog("Soft reboot failed rc=$rebootRc")
                 }
             } catch (t: Throwable) {
                 addLog("ERROR: $t")
@@ -1291,116 +1239,6 @@ class MainActivity : ComponentActivity() {
                 withContext(Dispatchers.Main) { busy = false }
             }
         }
-    }
-
-    private fun deployPlan(): List<Pair<String, String>> {
-        val common = when (exploit) {
-            ExploitKind.CVE98260 -> listOf("t98260")
-            ExploitKind.CVE61269 -> listOf("t61269")
-        }
-        val extra = mutableListOf<Pair<String, String>>()
-        if (susfsSupport) {
-            val susfs = if (exploit == ExploitKind.CVE61269) {
-                "susfs_guard_lkm-6.12.ko"
-            } else {
-                "susfs_guard_lkm.ko"
-            }
-            extra.add(susfs to susfs)
-        }
-        if (vfsSupport && exploit == ExploitKind.CVE98260) {
-            extra.add("hybridmount-6.18.21.ko" to "hybridmount-6.18.21.ko")
-        }
-        return common.map { it to it } + extra
-    }
-
-    private fun deployDir(): String {
-        val id = try {
-            val p = PrivService.newProcess(
-                arrayOf("cat", "/proc/sys/kernel/random/boot_id"),
-                shizukuEnv(), "/data/local/tmp"
-            )
-            val text = p.getInputStream()
-                .bufferedReader().readText().trim()
-            p.waitFor()
-            text.replace("-", "").take(12)
-        } catch (t: Throwable) {
-            ""
-        }
-        val tag = id.ifEmpty { "x" }
-        return "/data/local/tmp/pyb110-$tag-${System.currentTimeMillis() / 1000}"
-    }
-
-    private fun stageAssets(dir: String, files: List<Pair<String, String>>) {
-        val stale = "killall -9 t64560_loader2 t64560_w2 t64560_v36 brm_plant 2>/dev/null"
-        runCatching {
-            PrivService.newProcess(
-                arrayOf("sh", "-c", stale),
-                shizukuEnv(), "/data/local/tmp"
-            ).waitFor()
-        }
-        val mk = PrivService.newProcess(
-            arrayOf("sh", "-c", "mkdir -p '$dir' && touch '$dir/.probe' && rm '$dir/.probe'"),
-            shizukuEnv(), "/data/local/tmp"
-        ).waitFor()
-        if (mk != 0) {
-            addLog("Deploy dir not writable: $dir rc=$mk")
-            throw java.io.IOException("deploy dir not writable: $dir")
-        }
-
-        for ((assetName, target) in files) {
-            val p = PrivService.newProcess(
-                arrayOf("sh", "-c", "cat > '$dir/$target'"),
-                shizukuEnv(), "/data/local/tmp"
-            )
-            var copied = 0L
-            try {
-                p.getOutputStream().use { out ->
-                    assets.open("pyb110/$assetName").use { copied = it.copyTo(out) }
-                }
-            } catch (t: java.io.IOException) {
-                addLog("Failed to write $target (dir/file permission?): ${t.message}")
-                throw t
-            }
-            val rc = p.waitFor()
-            if (rc != 0) addLog("Deploy failed $target rc=$rc") else addLog("Deployed $target (${copied} B)")
-        }
-
-        PrivService.newProcess(
-            arrayOf("sh", "-c", "chmod 755 " + files.joinToString(" ") { "'$dir/${it.second}'" }),
-            shizukuEnv(), "/data/local/tmp"
-        ).waitFor()
-    }
-
-    private fun runStreaming(cmd: Array<String>, dir: String): Int {
-        val env = shizukuEnv() + "PYB110_DIR=$dir" + "PYB110_MANAGER=${manager.manager}" +
-            "PYB110_LATE_LOAD=1" +
-            "PYB110_UNLOAD_GUARD=${if (unloadGuard) "1" else "0"}" +
-            "PYB110_DISABLE_ANTIROOT=${if (antiRootGuard) "1" else "0"}" +
-            "PYB110_SUSFS=${if (susfsSupport) "1" else "0"}" +
-            "PYB110_VFS=${if (vfsSupport) "1" else "0"}"
-        val p = PrivService.newProcess(cmd, env, dir)
-        val out = p.getInputStream()
-        val err = p.getErrorStream()
-        val t1 = Thread {
-            try {
-                out.bufferedReader().forEachLine { addLog(it) }
-            } catch (t: Throwable) {
-                // stream closed by waitFor() cleanup
-            }
-        }.apply { isDaemon = true; start() }
-        val t2 = Thread {
-            try {
-                err.bufferedReader().forEachLine { addLog(it) }
-            } catch (t: Throwable) {
-                // stream closed by waitFor() cleanup
-            }
-        }.apply { isDaemon = true; start() }
-        val rc = p.waitFor()
-        runCatching { out.close() }
-        runCatching { err.close() }
-        t1.join(2000)
-        t2.join(2000)
-        return rc
     }
 
     override fun onDestroy() {
@@ -1415,11 +1253,6 @@ class MainActivity : ComponentActivity() {
         HOME("首页", Icons.Filled.Home),
         LOGS("日志", COUIIcons.Notes),
         HISTORY("历史", Icons.Filled.History)
-    }
-
-    private enum class ExploitKind(val fullLabel: String) {
-        CVE98260("CVE-2026-98260-6.18"),
-        CVE61269("CVE-2026-98260-6.12")
     }
 
     private enum class ManagerKind(val fullLabel: String, val pkg: String, val manager: String) {
