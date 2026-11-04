@@ -43,7 +43,7 @@ jobs:
             -keystore ci-release.jks \
             -alias ci \
             -keyalg RSA -keysize 2048 -validity 10000 \
-            -storepass ci -keypass ci \
+            -storepass ci123456 -keypass ci123456 \
             -dname "CN=CI, OU=DirtyFrag, O=iQOO Neo8" > /dev/null 2>&1
           printf 'storeFile=ci-release.jks\nstorePassword=ci\nkeyAlias=ci\nkeyPassword=ci\n' > keystore.properties
           cat keystore.properties
