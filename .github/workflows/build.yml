@@ -45,7 +45,7 @@ jobs:
             -keyalg RSA -keysize 2048 -validity 10000 \
             -storepass ci123456 -keypass ci123456 \
             -dname "CN=CI, OU=DirtyFrag, O=iQOO Neo8" > /dev/null 2>&1
-          printf 'storeFile=ci-release.jks\nstorePassword=ci\nkeyAlias=ci\nkeyPassword=ci\n' > keystore.properties
+          printf 'storeFile=ci-release.jks\nstorePassword=ci123456\nkeyAlias=ci\nkeyPassword=ci123456\n' > keystore.properties
           cat keystore.properties
 
       - name: Build debug APK
