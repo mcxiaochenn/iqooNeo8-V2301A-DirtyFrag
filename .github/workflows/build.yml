@@ -36,17 +36,18 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Create CI keystore
+      - name: Decode release keystore
+        env:
+          RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+          RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
         working-directory: app
         run: |
-          keytool -genkeypair -v \
-            -keystore ci-release.jks \
-            -alias ci \
-            -keyalg RSA -keysize 2048 -validity 10000 \
-            -storepass ci123456 -keypass ci123456 \
-            -dname "CN=CI, OU=DirtyFrag, O=iQOO Neo8" > /dev/null 2>&1
-          printf 'storeFile=ci-release.jks\nstorePassword=ci123456\nkeyAlias=ci\nkeyPassword=ci123456\n' > keystore.properties
-          cat keystore.properties
+          echo "$RELEASE_KEYSTORE_BASE64" | base64 -d > ci-release.jks
+          printf 'storeFile=ci-release.jks\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' \
+            "$RELEASE_STORE_PASSWORD" "$RELEASE_KEY_ALIAS" "$RELEASE_KEY_PASSWORD" > keystore.properties
+          keytool -list -keystore ci-release.jks -storepass "$RELEASE_STORE_PASSWORD" | tail -3
 
       - name: Build debug APK
         working-directory: app
