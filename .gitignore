@@ -27,3 +27,7 @@ tools/pdg.tar.gz
 tools/rel.json
 tools/*.b64
 tools/unpack_bootimg.py
+
+# CI artifact 下载目录
+out_ci/
+out/
