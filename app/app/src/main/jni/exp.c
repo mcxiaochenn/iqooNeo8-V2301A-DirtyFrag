@@ -248,7 +248,6 @@ asm(
     ".section .rodata\n"
     ".global dfroot_ko_12_5_10_start\n.global dfroot_ko_12_5_10_end\n"
     "dfroot_ko_12_5_10_start:\n.incbin \"ko/dfroot-android12-5.10.ko\"\ndfroot_ko_12_5_10_end:\n"
-    "dfroot_ko_17_6_18_start:\n.incbin \"ko/dfroot-android17-6.18.ko\"\ndfroot_ko_17_6_18_end:\n"
 );
 
 asm(
