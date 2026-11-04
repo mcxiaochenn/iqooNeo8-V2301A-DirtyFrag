@@ -508,8 +508,6 @@ class MainActivity : ComponentActivity() {
                                         )
                                     }
                                 )
-                                    )
-                                }
                             }
                         }
                     }
