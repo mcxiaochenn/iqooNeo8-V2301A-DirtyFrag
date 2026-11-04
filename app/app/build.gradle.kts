@@ -21,7 +21,7 @@ android {
     buildToolsVersion = "37.0.0"
     defaultConfig {
         applicationId = "com.iqooneo8.dirtyfrag"
-        minSdk = 32
+        minSdk = 33
         targetSdk = 37
         versionCode = 1
         versionName = "0.1"
