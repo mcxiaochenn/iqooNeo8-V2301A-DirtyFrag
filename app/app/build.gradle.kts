@@ -23,8 +23,8 @@ android {
         applicationId = "com.iqooneo8.dirtyfrag"
         minSdk = 33
         targetSdk = 37
-        versionCode = 1
-        versionName = "0.1"
+        versionCode = 2
+        versionName = "1.0.1"
         ndk {
             abiFilters += listOf("arm64-v8a")
         }
