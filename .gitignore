@@ -31,3 +31,4 @@ tools/unpack_bootimg.py
 # CI artifact 下载目录
 out_ci/
 out/
+out_rel/
